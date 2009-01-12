@@ -1,0 +1,18 @@
+[alias]
+  who = "!echo ; echo ; echo \"\\tworking as `git config user.name`...\" ; echo ; echo"
+  what = "!git who ; git diff"
+  when = "!git who ; git log"
+  st = "!git who ; git status"
+  ci = "!git who ; git commit"
+  co = "!git who ; git checkout"
+  get = "!git who ; git pull"
+  put = "!git who ; git push"
+  bless = "!sh -c 'git who ; git config branch.$0.remote origin ; git config branch.$0.merge refs/heads/$0'"
+  finish = "!sh -c 'TMP_FILE=/tmp/git_finish ; URL=$0 ; MESSAGE=$1 ; echo \"$MESSAGE\" > $TMP_FILE; echo \"(finishes: $URL)\" >> $TMP_FILE; git ci -aF $TMP_FILE ; rm $TMP_FILE'"
+[user]
+  name = Corey Innis
+  email = corey@coolerator.net
+[color]
+  diff = auto
+  status = auto
+  branch = auto
