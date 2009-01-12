@@ -1,0 +1,157 @@
+#!/usr/bin/env ruby
+
+# resources
+#   * http://randomfoo.net/blog/id/4092
+#   * http://www.apple.com/applescript/firsttutorial/index.html
+#   * http://www.apple.com/applescript/features/system-prefs.html
+#   * http://www.kernelthread.com/mac/osx/tools.html
+#   * http://www.ss64.com/osx/
+#   * http://pleac.sourceforge.net/pleac_ruby/fileaccess.html
+#   * http://www.cs.usfca.edu/~bhardie/misc/misc/scutil.html
+#   * http://forums.macosxhints.com/archive/index.php/t-76469.html
+#   * http://secrets.blacktree.com/?show=all&page=1
+#   * http://www.cocoatech.com/
+#   * http://www.cocoatech.com/faqs
+#   * http://www.charlessoft.com/
+#   * http://lipidity.com/software/desksaver/
+#   * http://www.fatcatsoftware.com/plisteditpro/plisteditpro_screenshots.html
+#   * http://www.coriolis-systems.com/iPartition.php
+#   * http://www.macgeekery.com/tips/cli/nondestructively_resizing_volumes
+#   * http://matthewcarriere.com/2008/04/02/installing-mysql-on-mac-os-x-leopard-using-macports/
+#   * http://codesnippets.joyent.com/posts/show/322
+
+
+require 'logger'
+
+class Logger::Formatter
+  remove_const('Format')
+  const_set('Format', "[%s#%d] %5s\n\t%s\n%s\n")
+
+  def call(severity, time, progname, msg)
+    Format % [format_datetime(time), $$, severity, progname,
+    msg2str(msg)]
+  end
+end
+
+class SystemSetup
+  attr_reader :log_path, :logger
+
+  def initialize
+    @log_path = "#{ENV['HOME']}/log/system_setup.log"
+    
+    log_file  = File.open(log_path, File::WRONLY | File::APPEND | File::CREAT)
+    @logger   = Logger.new(log_file)
+  end
+
+  def config_hostname(name)
+    config('hostname', ["sudo scutil --set ComputerName #{name}", "sudo scutil --set LocalHostName #{name}"])
+  end
+
+  def config_defaults(description, domain, key, value, &block)
+    config(description, ["defaults write #{domain} #{key} #{value}"], &block)
+  end
+
+  def config(item, commands, note = nil, &block)
+    unless completed?("config:  #{item}")
+      commands.each { |command| `#{command}` }
+      yield if block_given?
+
+      log("config:  #{item}", commands, note)
+    end
+  end
+
+  def install_from_uri(name, uri, options = {})
+    extension = options[:ext] || uri.sub(/.*\./, '')
+    installer = "tmp_installer.#{extension}"
+
+    commands = []
+    commands << "curl -L -f -l -o #{installer} '#{uri}'"
+
+    if extension == 'dmg'
+      commands << "hdiutil attach -mountpoint ./tmp_installer #{installer}"
+      # commands << "cp -r ./tmp_installer/*.app /Applications/"
+      commands << "sudo installer -pkg tmp_installer/*.pkg -target '/'"
+      commands << "hdiutil detach ./tmp_installer"
+    end
+    
+    commands << "rm #{installer}"
+    
+    install(name, commands)
+  end
+
+  def install_macport(name, port, &block)
+    command = "sudo port install #{port}"
+    install(name, [command], nil, &block)
+  end
+
+  def install(item, commands, note = nil)
+    unless completed?("install: #{item}")
+      puts "install: #{item}"
+      
+      commands.each { |command| system(command) }
+      yield if block_given?
+      
+      log("install: #{item}", commands, note)
+    end
+  end
+
+  def completed?(item)
+    search = File.open(log_path, 'r').grep(/#{item}/)
+    found  = 0 != search.length
+
+    # puts "skipping #{item}" if found
+    found
+  end
+
+  def log(item, commands, note = nil)
+    message = []
+    commands.each { |command| message << "command: #{command}"}
+    message << "note:    #{note}" if note
+
+    logger.info(item) { "\t" + message.join("\n\t") }
+  end
+
+  def finish(reboot = false)
+    logger.close
+    `sudo shutdown -r now` if reboot
+  end
+end
+
+setup = SystemSetup.new
+
+setup.config_hostname('mowgli')
+
+setup.config_defaults('standard fn keys',  '-g',
+                                           'com.apple.keyboard.fnState',
+                                           '-boolean true')
+setup.config_defaults('desktop icon size', 'com.apple.finder',
+                                           'DesktopViewOptions.IconViewOptions.IconSize',
+                                           '16') {
+                                             `killall Finder`
+                                           }
+setup.config_defaults('dock w/out glass',  'com.apple.dock',
+                                           'no-glass',
+                                           '-boolean true') {
+                                             `killall Dock`
+                                           }
+setup.config_defaults('screen capture',    'com.apple.screencapture',
+                                           'location',
+                                           "#{ENV['HOME']}/Pictures/Screen\\ Captures") {
+                                             `mkdir "#{ENV['HOME']}/Pictures/Screen Captures"`
+                                           }
+
+setup.install_from_uri('textmate',    'http://download-b.macromates.com/TextMate_1.5.7.dmg')
+setup.install_from_uri('firefox',     'http://download.mozilla.org/?product=firefox-3.0.5&os=osx&lang=en-US',
+                                      :ext => 'dmg')
+setup.install_from_uri('quicksilver', 'http://download.blacktree.com/download.php?id=com.blacktree.Quicksilver&type=dmg&new=yes',
+                                      :ext => 'dmg')
+setup.install_from_uri('macports',    'http://svn.macports.org/repository/macports/downloads/MacPorts-1.7.0/MacPorts-1.7.0-10.5-Leopard.dmg')
+
+setup.install_macport('mysql', 'mysql5 +server') {
+  `sudo /opt/local/lib/mysql5/bin/mysql_install_db --user=mysql`
+  `sudo launchctl load -w /Library/LaunchDaemons/org.macports.mysql5.plist`
+  `/opt/local/lib/mysql5/bin/mysqladmin -u root password 'password'`
+}
+setup.install_macport('git', 'git-core +svn +bash_completion')
+
+setup.finish
