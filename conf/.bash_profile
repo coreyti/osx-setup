@@ -12,9 +12,15 @@ alias ls='ls -G'
 alias ll='ls -hl'
 alias svn_diff='svn diff --diff-cmd svn-viewdiff'
 
-. ~/.profile
+if [ -f ~/.profile ] ; then
+  . ~/.profile
+fi
 
-if [ -f /opt/local/etc/bash_completion ]; then
+if [ -f ~/.bash_local ] ; then
+  . ~/.bash_local
+fi
+
+if [ -f /opt/local/etc/bash_completion ] ; then
   . /opt/local/etc/bash_completion
 fi
 complete -C ~/.completion/rake.rb -o default rake
