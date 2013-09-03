@@ -1,16 +1,29 @@
+[core]
+  editor          = subl -w
 [alias]
-  who = "!echo ; echo ; echo \"\\tworking as `git config user.name`...\" ; echo ; echo"
-  what = "!git who ; git diff"
-  when = "!git who ; git log"
-  st = "!git who ; git status"
-  ci = "!git who ; git commit"
-  co = "!git who ; git checkout"
-  get = "!git who ; git pull"
-  put = "!git who ; git push"
-[user]
-  name = Corey Innis
-  email = corey@coolerator.net
+  st              = status
+  ci              = commit
+  co              = checkout
 [color]
-  diff = auto
-  status = auto
-  branch = auto
+  diff            = auto
+  status          = auto
+  branch          = auto
+  interactive     = auto
+  grep            = auto
+[push]
+  default         = current
+[branch]
+  autosetupmerge  = true
+  autosetuprebase = always
+[diff]
+  # external        = ~/bin/git-opendiff
+  tool            = Kaleidoscope
+[mergetool]
+	keepBackup = true
+[difftool]
+  prompt          = false
+[difftool "Kaleidoscope"]
+  cmd             = ksdiff-wrapper git \"$LOCAL\" \"$REMOTE\"
+[user]
+	name = Corey Innis
+	email = corey@coolerator.net
